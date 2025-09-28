@@ -1,0 +1,39 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can only read/write their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Dispatches can be read/written by authenticated users
+    // Users can only access their own dispatches
+    match /dispatches/{dispatchId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.customerId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.customerId;
+    }
+    
+    // Notifications can be read/written by authenticated users
+    // Users can only access their own notifications
+    match /notifications/{notificationId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.customerId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.customerId;
+    }
+    
+    // Drivers collection (read-only for customers)
+    match /drivers/{driverId} {
+      allow read: if request.auth != null;
+    }
+    
+    // Trucks collection (read-only for customers)
+    match /trucks/{truckId} {
+      allow read: if request.auth != null;
+    }
+    
+    // Assignments collection (read-only for customers)
+    match /assignments/{assignmentId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.customerId;
+    }
+  }
+}
