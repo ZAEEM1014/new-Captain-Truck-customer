@@ -31,121 +31,13 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
   final LayerLink layerLink = LayerLink();
   final FocusNode focusNode = FocusNode();
 
-  // Current location variables
-  double? currentLat;
-  double? currentLng;
-
-  Future<void> _getCurrentLocation() async {
-    try {
-      Position? position =
-          await LocationService.getCurrentLocationWithFallback();
-      if (position != null && mounted) {
-        setState(() {
-          currentLat = position.latitude;
-          currentLng = position.longitude;
-        });
-        print('📍 Current location obtained: $currentLat, $currentLng');
-      }
-    } catch (e) {
-      print('❌ Error getting current location: $e');
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _getCurrentLocation();
-    widget.controller.addListener(_onTextChanged);
-    focusNode.addListener(() {
-      if (!focusNode.hasFocus) {
-        _clearSuggestions();
-        _hideSuggestions();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    widget.controller.removeListener(_onTextChanged);
-    focusNode.dispose();
-    _hideSuggestions();
-    super.dispose();
-  }
-
-  void _hideSuggestions() {
-    overlayEntry?.remove();
-    overlayEntry = null;
-  }
-
-  void _onTextChanged() {
-    final query = widget.controller.text.trim();
-    if (query.length >= 3) {
-      _searchAddresses(query);
-    } else {
-      setState(() {
-        suggestions = [];
-      });
-      _hideSuggestions();
-    }
-  }
-
-  void _clearSuggestions() {
-    setState(() {
-      suggestions = [];
-    });
-    _hideSuggestions();
-  }
-
-  Future<void> _searchAddresses(String query) async {
-    if (mounted) {
-      setState(() {
-        isLoading = true;
-      });
-    }
-
-    try {
-      print('🔍 Searching for addresses with query: $query');
-      final newSuggestions = await GoogleMapsService.getPlaceSuggestions(
-        query,
-        currentLat: currentLat,
-        currentLng: currentLng,
-      );
-      print('📍 Got ${newSuggestions.length} address suggestions');
-
-      if (mounted) {
-        setState(() {
-          suggestions = newSuggestions;
-          isLoading = false;
-        });
-
-        if (suggestions.isNotEmpty) {
-          _showSuggestions();
-        } else {
-          _hideSuggestions();
-          // Show fallback suggestions if API fails
-          if (query.length >= 3) {
-            print('💡 No suggestions found for: $query');
-            _showFallbackSuggestions(query);
-          }
-        }
-      }
-    } catch (e) {
-      print('❌ Address search error: $e');
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-          suggestions = [];
-        });
-        _hideSuggestions();
-
-        // Show fallback suggestions instead of error
-        _showFallbackSuggestions(query);
-      }
-    }
-  }
-
   void _showSuggestions() {
     _hideSuggestions();
+
+    final customAddress = widget.controller.text.trim();
+    final showCustomOption =
+        customAddress.isNotEmpty &&
+        !suggestions.any((s) => s['description'] == customAddress);
 
     overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
@@ -158,84 +50,104 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
             elevation: 8,
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              constraints: const BoxConstraints(maxHeight: 200),
+              constraints: const BoxConstraints(maxHeight: 250),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.grey.shade300),
               ),
-              child: ListView.builder(
+              child: ListView(
                 padding: EdgeInsets.zero,
                 shrinkWrap: true,
-                itemCount: suggestions.length,
-                itemBuilder: (context, index) {
-                  final suggestion = suggestions[index];
-                  return ListTile(
-                    dense: true,
-                    leading: Icon(
-                      FontAwesomeIcons.locationDot,
-                      color: AppColors.primary,
-                      size: 16,
-                    ),
-                    title: Text(
-                      suggestion['description'] ?? '',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontFamily: 'Poppins',
+                children: [
+                  ...suggestions.map(
+                    (suggestion) => ListTile(
+                      dense: true,
+                      leading: Icon(
+                        FontAwesomeIcons.locationDot,
+                        color: AppColors.primary,
+                        size: 16,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      title: Text(
+                        suggestion['description'] ?? '',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontFamily: 'Poppins',
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () async {
+                        final placeId = suggestion['place_id'];
+                        widget.controller.text =
+                            suggestion['description'] ?? '';
+                        _hideSuggestions();
+                        setState(() {
+                          suggestions = [];
+                        });
+                        if (placeId != null &&
+                            placeId.toString().startsWith('fallback_')) {
+                          widget.onAddressSelected?.call(
+                            suggestion['description'] ?? '',
+                            null,
+                          );
+                        } else {
+                          final placeDetails =
+                              await GoogleMapsService.getPlaceDetails(placeId);
+                          widget.onAddressSelected?.call(
+                            suggestion['description'] ?? '',
+                            placeDetails,
+                          );
+                        }
+                        focusNode.unfocus();
+                      },
                     ),
-                    onTap: () async {
-                      final placeId = suggestion['place_id'];
-
-                      // Set the selected address
-                      widget.controller.text = suggestion['description'] ?? '';
-
-                      // Clear suggestions immediately
-                      _clearSuggestions();
-
-                      // Handle fallback suggestions differently
-                      if (placeId != null &&
-                          placeId.toString().startsWith('fallback_')) {
-                        // For fallback suggestions, just call the callback without coordinates
-                        widget.onAddressSelected?.call(
-                          suggestion['description'] ?? '',
-                          null, // No coordinates available for fallback
-                        );
-                      } else {
-                        // Get place details with coordinates for real API results
-                        final placeDetails =
-                            await GoogleMapsService.getPlaceDetails(placeId);
-
-                        // Call the callback with address and coordinates
-                        widget.onAddressSelected?.call(
-                          suggestion['description'] ?? '',
-                          placeDetails,
-                        );
-                      }
-
-                      // Remove focus to hide keyboard
-                      focusNode.unfocus();
-                    },
-                  );
-                },
+                  ),
+                  if (showCustomOption)
+                    ListTile(
+                      dense: true,
+                      leading: Icon(
+                        Icons.edit_location_alt,
+                        color: AppColors.primary,
+                        size: 16,
+                      ),
+                      title: Text(
+                        'Use "$customAddress"',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontFamily: 'Poppins',
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () {
+                        widget.onAddressSelected?.call(customAddress, null);
+                        _hideSuggestions();
+                        setState(() {
+                          suggestions = [];
+                        });
+                        focusNode.unfocus();
+                      },
+                    ),
+                ],
               ),
             ),
           ),
         ),
       ),
     );
-
     Overlay.of(context).insert(overlayEntry!);
   }
 
-  // Removed duplicate _hideSuggestions method
+  void _clearSuggestions() {
+    setState(() {
+      suggestions = [];
+    });
+    _hideSuggestions();
+  }
 
   void _showFallbackSuggestions(String query) {
     if (query.length < 3) return;
-
-    // Common Pakistani cities and areas
     final fallbackSuggestions =
         [
               'Karachi, Pakistan',
@@ -275,6 +187,11 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
       });
       _showSuggestions();
     }
+  }
+
+  void _hideSuggestions() {
+    overlayEntry?.remove();
+    overlayEntry = null;
   }
 
   @override
@@ -361,6 +278,41 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
           textInputAction: TextInputAction.done,
           onSubmitted: (value) {
             _clearSuggestions();
+          },
+          onChanged: (value) async {
+            if (value.trim().isEmpty) {
+              setState(() {
+                suggestions = [];
+                isLoading = false;
+              });
+              _hideSuggestions();
+              return;
+            }
+            setState(() {
+              isLoading = true;
+            });
+            try {
+              final results = await GoogleMapsService.getPlaceSuggestions(
+                value,
+              );
+              if (mounted) {
+                setState(() {
+                  suggestions = results;
+                  isLoading = false;
+                });
+                if (suggestions.isNotEmpty) {
+                  _showSuggestions();
+                } else {
+                  _showFallbackSuggestions(value);
+                }
+              }
+            } catch (e) {
+              setState(() {
+                isLoading = false;
+                suggestions = [];
+              });
+              _showFallbackSuggestions(value);
+            }
           },
         ),
       ),
