@@ -19,7 +19,7 @@ class TripService {
     required String pickupAddress,
     required String dropoffAddress,
     String? note,
-    DateTime? tripDate, // Added tripDate parameter
+    DateTime? pickupDateTime, // Renamed for consistency with TripModel
   }) async {
     try {
       final currentUser = AuthUserService.currentFirebaseUser;
@@ -55,7 +55,7 @@ class TripService {
         status: 'pending', // Default status
         note: note,
         createdAt: DateTime.now(),
-        tripDate: tripDate, // Pass tripDate to TripModel
+        pickupDateTime: pickupDateTime, // Pass pickupDateTime to TripModel
         pickupLat: null, // Coordinates removed
         pickupLng: null,
         dropoffLat: null,

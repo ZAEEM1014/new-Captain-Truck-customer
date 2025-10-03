@@ -28,6 +28,24 @@ class DispatchService {
         return {'success': false, 'message': 'User not logged in'};
       }
 
+      // Fetch customer name from Firestore
+      String customerName = 'Customer';
+      try {
+        final customerDoc = await FirebaseFirestore.instance
+            .collection(CUSTOMERS_COLLECTION)
+            .doc(currentUser.uid)
+            .get();
+        if (customerDoc.exists && customerDoc.data() != null) {
+          final data = customerDoc.data() as Map<String, dynamic>;
+          if (data['name'] != null &&
+              data['name'].toString().trim().isNotEmpty) {
+            customerName = data['name'];
+          }
+        }
+      } catch (e) {
+        print('Error fetching customer name: $e');
+      }
+
       // Generate dispatch ID
       final dispatchId = _generateDispatchId();
 
@@ -151,11 +169,11 @@ class DispatchService {
       await _createGlobalNotification(
         dispatchId: dispatchId,
         customerId: currentUser.uid,
-        customerName: currentUser.displayName ?? 'Customer',
+        customerName: customerName,
         type: 'dispatch_created',
         title: 'New Dispatch Request',
         message:
-            'Customer ${currentUser.displayName ?? 'Unknown'} created a new dispatch request for ${truckRequirements.map((t) => '${t.count} ${TruckTypes.getDisplayName(t.truckType)}').join(', ')}',
+            'Customer $customerName created a new dispatch request for ${truckRequirements.map((t) => '${t.count} ${TruckTypes.getDisplayName(t.truckType)}').join(', ')}',
         additionalData: {
           'truckTypes': truckRequirements
               .map((t) => TruckTypes.getDisplayName(t.truckType))

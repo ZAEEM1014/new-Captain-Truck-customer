@@ -68,11 +68,11 @@ class TripModel {
     this.assignedAt,
     this.inProgressAt,
     this.completedAt,
+    this.pickupDateTime,
     this.assignedDriverIds,
     this.assignedTruckIds,
     this.assignmentDetails,
     this.totalAssignments,
-    this.tripDate, // Initialize tripDate
     this.truckAssigned,
     this.driverId,
     this.driverName,
@@ -84,7 +84,7 @@ class TripModel {
     this.truckPlateNumber,
     this.truckModel,
     this.completionImage,
-    this.completionNotes,
+    this.completionNotes, DateTime? tripDate,
   });
 
   // Create from Firestore document
@@ -115,9 +115,9 @@ class TripModel {
       assignedTruckIds: (data['assignedTruckIds'] as List?)?.cast<String>(),
       assignmentDetails: (data['assignmentDetails'] as List?)
           ?.cast<Map<String, dynamic>>(),
-    pickupDateTime: data['pickupDateTime'] != null
-      ? (data['pickupDateTime'] as Timestamp).toDate()
-      : null, // Handle pickupDateTime
+      pickupDateTime: data['pickupDateTime'] != null
+          ? (data['pickupDateTime'] as Timestamp).toDate()
+          : null, // Handle pickupDateTime
       totalAssignments: data['totalAssignments'],
       truckAssigned: data['truckAssigned'],
       // New admin assignment fields
@@ -176,11 +176,11 @@ class TripModel {
       assignedTruckIds: (data['assignedTruckIds'] as List?)?.cast<String>(),
       assignmentDetails: (data['assignmentDetails'] as List?)
           ?.cast<Map<String, dynamic>>(),
-  pickupDateTime: data['pickupDateTime'] != null
-      ? (data['pickupDateTime'] is Timestamp
-        ? (data['pickupDateTime'] as Timestamp).toDate()
-        : DateTime.parse(data['pickupDateTime']))
-      : null,
+      pickupDateTime: data['pickupDateTime'] != null
+          ? (data['pickupDateTime'] is Timestamp
+                ? (data['pickupDateTime'] as Timestamp).toDate()
+                : DateTime.parse(data['pickupDateTime']))
+          : null,
       totalAssignments: data['totalAssignments'],
       truckAssigned: data['truckAssigned'],
       // New admin assignment fields
@@ -238,7 +238,7 @@ class TripModel {
     String? note,
     String? cancellationReason,
     DateTime? createdAt,
-  DateTime? pickupDateTime,
+    DateTime? pickupDateTime,
     double? pickupLat,
     double? pickupLng,
     double? dropoffLat,
@@ -277,7 +277,7 @@ class TripModel {
       note: note ?? this.note,
       cancellationReason: cancellationReason ?? this.cancellationReason,
       createdAt: createdAt ?? this.createdAt,
-  pickupDateTime: pickupDateTime ?? this.pickupDateTime,
+      pickupDateTime: pickupDateTime ?? this.pickupDateTime,
       pickupLat: pickupLat ?? this.pickupLat,
       pickupLng: pickupLng ?? this.pickupLng,
       dropoffLat: dropoffLat ?? this.dropoffLat,
