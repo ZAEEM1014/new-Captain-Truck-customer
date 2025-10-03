@@ -59,6 +59,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
     focusNode.addListener(() {
       if (!focusNode.hasFocus) {
         _clearSuggestions();
+        _hideSuggestions();
       }
     });
   }
@@ -69,6 +70,11 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
     focusNode.dispose();
     _hideSuggestions();
     super.dispose();
+  }
+
+  void _hideSuggestions() {
+    overlayEntry?.remove();
+    overlayEntry = null;
   }
 
   void _onTextChanged() {
@@ -224,10 +230,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
     Overlay.of(context).insert(overlayEntry!);
   }
 
-  void _hideSuggestions() {
-    overlayEntry?.remove();
-    overlayEntry = null;
-  }
+  // Removed duplicate _hideSuggestions method
 
   void _showFallbackSuggestions(String query) {
     if (query.length < 3) return;

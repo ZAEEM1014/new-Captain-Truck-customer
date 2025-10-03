@@ -25,26 +25,23 @@ class GoogleMapsService {
 
     try {
       print('🔍 Searching for places with query: $query');
-      print('🔑 Using API key: ${API_KEY.substring(0, 10)}...');
+      print('🔑 Using API key: "+API_KEY.substring(0, 10)+"...');
 
+      String url =
+          '$PLACES_BASE_URL/autocomplete/json'
+          '?input=${Uri.encodeComponent(query)}'
+          '&key=$API_KEY'
+          '&components=country:CA'
+          '&types=address'
+          '&language=en'
+          '&sessiontoken=${DateTime.now().millisecondsSinceEpoch}';
 
-    String url =
-      '$PLACES_BASE_URL/autocomplete/json'
-      '?input=${Uri.encodeComponent(query)}'
-      '&key=$API_KEY'
-      '&components=country:CA'
-      '&types=address'
-      '&language=en'
-      '&strictbounds'
-      '&sessiontoken=${DateTime.now().millisecondsSinceEpoch}'
-      '&limit=10'; // Request more suggestions if supported
-
-      // Add location bias if current location is available
-      if (currentLat != null && currentLng != null) {
-        url += '&location=$currentLat,$currentLng';
-        url += '&radius=50000'; // 50km radius
-        print('📍 Using location bias: $currentLat, $currentLng');
-      }
+      // Always add location bias for Alberta if not provided
+      double lat = currentLat ?? 53.9333; // Alberta center latitude
+      double lng = currentLng ?? -116.5765; // Alberta center longitude
+      url += '&location=$lat,$lng';
+      url += '&radius=50000'; // 50km radius
+      print('📍 Using location bias: $lat, $lng');
 
       print('🌐 Request URL: ${url.replaceAll(API_KEY, 'API_KEY_HIDDEN')}');
 
@@ -62,45 +59,7 @@ class GoogleMapsService {
             data['predictions'],
           );
           print('🎯 Found ${predictions.length} suggestions');
-
-          // Alberta service area cities
-          final List<String> albertaCities = [
-            'Calgary', 'Edmonton', 'Lethbridge', 'Red Deer', 'Grande Prairie',
-            'Medicine Hat', 'St. Albert', 'Banff', 'Brooks', 'Fort McMurray',
-            'Strathmore', 'Cochrane', 'Okotoks', 'High River', 'Crossfield'
-          ];
-
-          // Group suggestions by city and highways, and keep max for each
-          final List<Map<String, dynamic>> citySuggestions = [];
-          final List<Map<String, dynamic>> highwaySuggestions = [];
-          final int maxPerCity = 5;
-          final int maxHighway = 10;
-          final Map<String, int> cityCounts = {};
-          int highwayCount = 0;
-
-          for (final p in predictions) {
-            final desc = (p['description'] ?? '').toString();
-            // Highways Canada-wide
-            if ((desc.contains('Hwy') || desc.contains('Trans-Canada') || desc.contains('AB-')) && highwayCount < maxHighway) {
-              highwaySuggestions.add(p);
-              highwayCount++;
-              continue;
-            }
-            // Alberta cities
-            for (final city in albertaCities) {
-              if (desc.contains(city + ',')) {
-                cityCounts[city] = (cityCounts[city] ?? 0) + 1;
-                if (cityCounts[city]! <= maxPerCity) {
-                  citySuggestions.add(p);
-                }
-                break;
-              }
-            }
-          }
-
-          final filtered = [...citySuggestions, ...highwaySuggestions];
-          print('🎯 Filtered to ${filtered.length} Alberta/corridor suggestions (max per city/highway)');
-          return filtered;
+          return predictions;
         } else {
           print('❌ API returned error status: ${data['status']}');
           if (data['error_message'] != null) {
