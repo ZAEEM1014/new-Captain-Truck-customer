@@ -192,15 +192,18 @@ class TruckRequirement {
 
   Map<String, dynamic> toMap() {
     return {
-      'truckType': truckType,
-      'count': count
-          .toString(), // Store as string to match your Firebase structure
+      // Store the display name in Firestore
+      'truckType': TruckTypes.getDisplayName(truckType),
+      'count': count.toString(),
     };
   }
 
   factory TruckRequirement.fromMap(Map<String, dynamic> map) {
+    // Accept display name and convert to internal key if possible
+    String displayName = map['truckType'] ?? '';
+    String internalKey = TruckTypes.getInternalKey(displayName) ?? displayName;
     return TruckRequirement(
-      truckType: map['truckType'] ?? '',
+      truckType: internalKey,
       count: int.tryParse(map['count']?.toString() ?? '0') ?? 0,
     );
   }
@@ -213,6 +216,22 @@ class TruckRequirement {
 
 // Available truck types
 class TruckTypes {
+  // Map display names to internal keys
+  static final Map<String, String> _displayNameToKey = {
+    'Turnpike Double / B-Train': 'turnpike_double',
+    'Container Hauling': 'container_hauling',
+    'Tractor Service (Power-Only)': 'tractor_service',
+    'Temperature-Controlled': 'temperature_controlled',
+    'Step Deck & Flatdeck': 'step_deck_flatdeck',
+    'Dry Van': 'dry_van',
+    'Cross Dock': 'cross_dock',
+    'Expedited & Hot Shot / 5-Ton': 'expedited_hotshot',
+  };
+
+  static String? getInternalKey(String displayName) {
+    return _displayNameToKey[displayName];
+  }
+
   static const List<String> availableTypes = [
     'turnpike_double',
     'container_hauling',
