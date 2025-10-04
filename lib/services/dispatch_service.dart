@@ -165,15 +165,15 @@ class DispatchService {
         },
       );
 
-      // Create notification for dispatch creation in global collection
+      // Create ONLY ONE global notification for dispatch creation, with the required message
       await _createGlobalNotification(
         dispatchId: dispatchId,
         customerId: currentUser.uid,
         customerName: customerName,
-        type: 'dispatch_created',
+        type: 'new_request',
         title: 'New Dispatch Request',
         message:
-            'Customer $customerName created a new dispatch request for ${truckRequirements.map((t) => '${t.count} ${TruckTypes.getDisplayName(t.truckType)}').join(', ')}',
+            '$customerName has created a new dispatch request: $pickupAddress → $dropoffAddress',
         additionalData: {
           'truckTypes': truckRequirements
               .map((t) => TruckTypes.getDisplayName(t.truckType))
@@ -182,6 +182,7 @@ class DispatchService {
           'pickupAddress': pickupAddress,
           'dropoffAddress': dropoffAddress,
           'distance': dispatch.formattedDistance,
+          'priority': 'High',
         },
       );
 
@@ -559,28 +560,55 @@ class DispatchService {
     Map<String, dynamic>? additionalData,
   }) async {
     try {
-      final notificationId = _firestore
-          .collection(NOTIFICATIONS_COLLECTION)
-          .doc()
-          .id;
-
-      final notification = {
-        'id': notificationId,
-        'dispatchId': dispatchId,
-        'customerId': customerId,
-        'customerName': customerName,
-        'type': type,
-        'title': title,
-        'message': message,
-        'isRead': false,
-        'createdAt': FieldValue.serverTimestamp(),
-        'additionalData': additionalData ?? {},
-      };
-
-      await _firestore
-          .collection(NOTIFICATIONS_COLLECTION)
-          .doc(notificationId)
-          .set(notification);
+      String notificationId;
+      if (type == 'new_request') {
+        notificationId = dispatchId;
+        final docRef = _firestore
+            .collection(NOTIFICATIONS_COLLECTION)
+            .doc(notificationId);
+        final docSnap = await docRef.get();
+        if (docSnap.exists) {
+          print(
+            'Global notification already exists for dispatchId=$dispatchId, type=$type',
+          );
+          return;
+        }
+        final notification = {
+          'id': notificationId,
+          'dispatchId': dispatchId,
+          'customerId': customerId,
+          'customerName': customerName,
+          'type': type,
+          'title': title,
+          'message': message,
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'additionalData': additionalData ?? {},
+        };
+        await docRef.set(notification, SetOptions(merge: false));
+      } else {
+        // For other types, keep previous logic
+        notificationId = _firestore
+            .collection(NOTIFICATIONS_COLLECTION)
+            .doc()
+            .id;
+        final notification = {
+          'id': notificationId,
+          'dispatchId': dispatchId,
+          'customerId': customerId,
+          'customerName': customerName,
+          'type': type,
+          'title': title,
+          'message': message,
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+          'additionalData': additionalData ?? {},
+        };
+        await _firestore
+            .collection(NOTIFICATIONS_COLLECTION)
+            .doc(notificationId)
+            .set(notification, SetOptions(merge: false));
+      }
     } catch (e) {
       print('Error creating global notification: $e');
       // Don't throw error as this is not critical
